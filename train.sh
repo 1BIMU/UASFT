@@ -6,16 +6,16 @@
 export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-"0,1"}
 
 # Path to the pretrained model (make sure the model is downloaded)
-MODEL_PATH=${MODEL_PATH:-"/path/to/your/model"}
+MODEL_PATH=${MODEL_PATH:-"/data1/wty/standard_models/llama-2-7b"}
 
 # Path to the training data
-DATA_PATH=${DATA_PATH:-"/path/to/your/training_data.jsonl"}
+DATA_PATH=${DATA_PATH:-"/home/wty/ASFT/train_medmcqa_alpaca_10k.jsonl"}
 
 # Output directory
-OUTPUT_DIR=${OUTPUT_DIR:-"/path/to/your/output_dir"}
+OUTPUT_DIR=${OUTPUT_DIR:-"/data1/wty/output"}
 
 # Training parameters
-MODE=${MODE:-"asft"} # Training mode: sft, sft+kl, asft, dft+kl
+MODE=${MODE:-"uasft"} # Training mode: sft, sft+kl, asft, dft+kl , uasft
 MODEL_MAX_LENGTH=${MODEL_MAX_LENGTH:-2048}
 GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-256}
 LEARNING_RATE=${LEARNING_RATE:-5e-5}

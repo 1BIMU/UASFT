@@ -88,7 +88,22 @@ class EnhancedTrainer(Trainer):
                 
                 if self.mode == "sft":
                     weighted_losses = token_losses
+                elif self.mode == "uasft":
+                    # 1. Calculate the probability distribution for each token prediction
+                    probs = torch.softmax(shift_logits, dim=-1)
+                    # Use log_softmax for numerical stability in entropy calculation
+                    log_probs = F.log_softmax(shift_logits, dim=-1)
                     
+                    # 2. Calculate the entropy for each token's distribution
+                    # Entropy H(p) = - sum(p * log(p))
+                    entropy_weights = -(probs * log_probs).sum(dim=-1)
+                    
+                    # 3. Detach the weights so they don't contribute to the gradient themselves
+                    # We use entropy as a heuristic to scale the loss, not as part of the objective
+                    entropy_weights = entropy_weights.detach()
+                    
+                    # 4. Apply the entropy weights to the original token losses
+                    weighted_losses = token_losses * entropy_weights
                 elif self.mode == "dft":
                     probs = torch.softmax(shift_logits, dim=-1)
                     valid_labels = torch.clamp(shift_labels, min=0, max=probs.size(-1)-1)
