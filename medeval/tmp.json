@@ -1,0 +1,16 @@
+{
+  "/data1/wty/standard_models/llama-2-7b": {
+    "medqa": {
+      "accuracy": 0.2945797329143755,
+      "total_samples": 1273
+    },
+    "mmlu": {
+      "accuracy": 0.3088718510405257,
+      "total_samples": 2739
+    },
+    "medmcqa": {
+      "accuracy": 0.33994740616782215,
+      "total_samples": 4183
+    }
+  }
+}

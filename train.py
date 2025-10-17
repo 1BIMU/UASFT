@@ -109,7 +109,21 @@ class EnhancedTrainer(Trainer):
                     valid_labels = torch.clamp(shift_labels, min=0, max=probs.size(-1)-1)
                     weights = probs.gather(1, valid_labels.unsqueeze(-1)).squeeze(-1).detach()
                     weighted_losses = token_losses * weights
-                    
+                elif self.mode == "scwsft":
+                    # 1. 计算熵
+                    probs = torch.softmax(shift_logits, dim=-1)
+                    log_probs = F.log_softmax(shift_logits, dim=-1)
+                    entropy_values = -(probs * log_probs).sum(dim=-1)
+
+                    # 2. 使用指数衰减来计算权重
+                    # 确保权重范围在 (0, 1]
+                    confidence_weights = torch.exp(-self.beta * entropy_values)
+
+                    # 3. Detach 权重 (sg() 操作)
+                    confidence_weights = confidence_weights.detach()
+
+                    # 4. 应用权重
+                    weighted_losses = token_losses * confidence_weights
                 elif self.mode == "sft+kl":
                     if self.original_model is not None:
                         with torch.no_grad():

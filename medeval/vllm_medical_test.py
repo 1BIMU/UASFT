@@ -119,7 +119,7 @@ def main():
     
     try:
         # List of models to test
-        models = []
+        models = ['/data1/wty/standard_models/llama-2-7b']
         
         # Dataset paths
         test_data_dir = "test_data"
