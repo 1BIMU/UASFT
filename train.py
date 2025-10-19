@@ -74,12 +74,17 @@ class EnhancedTrainer(Trainer):
         logits = outputs.get("logits")
         
         if labels is not None:
+
             shift_logits = logits[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
+
+            valid_mask = shift_labels != IGNORE_INDEX
+            batch_size = inputs['input_ids'].shape[0]
+            
             shift_logits = shift_logits.view(-1, shift_logits.size(-1))
             shift_labels = shift_labels.view(-1)
-            valid_mask = shift_labels != IGNORE_INDEX
-            
+
+            num_tokens = shift_logits.shape[1]
             if valid_mask.sum() == 0:
                 loss = torch.tensor(0.0, device=shift_logits.device, requires_grad=True)
             else:

@@ -3,20 +3,20 @@
 
 # ============ User Configurable Variables ============
 # Select which GPUs to use (comma-separated)
-export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-"0,1"}
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-"2,4"}
 
 # Path to the pretrained model (make sure the model is downloaded)
-MODEL_PATH=${MODEL_PATH:-"/data1/wty/standard_models/llama-2-7b"}
+MODEL_PATH=${MODEL_PATH:-"/data1/wty/standard_models/Qwen2.5-0.5B"}
 
 # Path to the training data
-DATA_PATH=${DATA_PATH:-"/home/wty/ASFT/train_medmcqa_alpaca_10k.jsonl"}
+DATA_PATH=${DATA_PATH:-"/data1/wty/dataset/NUMINAMATH_COT/NuminaMath-10k.jsonl"}
 
 # Output directory
 OUTPUT_DIR=${OUTPUT_DIR:-"/data1/wty/output"}
 
 # Training parameters
-MODE=${MODE:-"uasft"} # Training mode: sft, sft+kl, asft, dft+kl , uasft
-MODEL_MAX_LENGTH=${MODEL_MAX_LENGTH:-2048}
+MODE=${MODE:-"sl_uasft"} # Training mode: sft, sft+kl, asft, dft+kl , uasft
+MODEL_MAX_LENGTH=${MODEL_MAX_LENGTH:-4096}
 GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-256}
 LEARNING_RATE=${LEARNING_RATE:-5e-5}
 NUM_TRAIN_EPOCHS=${NUM_TRAIN_EPOCHS:-3}
