@@ -73,18 +73,20 @@ class EnhancedTrainer(Trainer):
         outputs = model(**inputs)
         logits = outputs.get("logits")
         
+        # 修正后的最终版本
         if labels is not None:
+            # 在任何展平操作之前，先获取所有维度信息
+            batch_size = inputs['input_ids'].shape[0]
+            # `shift_logits` 的序列长度比 `logits` 少1
+            num_tokens = logits.shape[1] - 1
 
             shift_logits = logits[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
-
-            valid_mask = shift_labels != IGNORE_INDEX
-            batch_size = inputs['input_ids'].shape[0]
             
+            # 现在可以安全地展平张量了
             shift_logits = shift_logits.view(-1, shift_logits.size(-1))
             shift_labels = shift_labels.view(-1)
-
-            num_tokens = shift_logits.shape[1]
+            valid_mask = shift_labels != IGNORE_INDEX
             if valid_mask.sum() == 0:
                 loss = torch.tensor(0.0, device=shift_logits.device, requires_grad=True)
             else:
@@ -132,40 +134,34 @@ class EnhancedTrainer(Trainer):
                     weighted_losses = token_losses * confidence_weights
 
                 elif self.mode == "sl_uasft":
-                    # 1. Calculate token-level entropies as before
+                    # 1. 计算token级别的熵
                     probs = torch.softmax(shift_logits, dim=-1)
                     log_probs = F.log_softmax(shift_logits, dim=-1)
                     token_entropies = -(probs * log_probs).sum(dim=-1)
                     
-                    # 2. Reshape tensors to work on a per-sequence basis
+                    # 2. 重塑张量以便按序列进行操作
+                    # 这里的 batch_size 和 num_tokens 现在是正确的值了
                     reshaped_entropies = token_entropies.view(batch_size, num_tokens)
                     reshaped_valid_mask = valid_mask.view(batch_size, num_tokens)
 
-                    # 3. Calculate the average entropy for the RESPONSE part of EACH sequence
-                    # Mask out non-response tokens by multiplying with the mask
+                    # 3. 计算每个序列中 回复(RESPONSE) 部分的平均熵
                     masked_entropies = reshaped_entropies * reshaped_valid_mask.float()
-                    
-                    # Sum the entropies of response tokens and count them for each sequence
                     sum_of_entropies_per_seq = masked_entropies.sum(dim=1)
                     num_valid_tokens_per_seq = reshaped_valid_mask.sum(dim=1)
-                    
-                    # Add a small epsilon to prevent division by zero for sequences with no labels
                     epsilon = 1e-8
                     avg_entropy_per_seq = sum_of_entropies_per_seq / (num_valid_tokens_per_seq + epsilon)
 
-                    # 4. Detach the sequence-level weight (sg() operation)
+                    # 4. 分离序列级权重 (sg() 操作)
                     sequence_level_weight = avg_entropy_per_seq.detach()
 
-                    # 5. Broadcast this single weight to all tokens in the corresponding sequence
-                    # Unsqueeze to make it [batch_size, 1] for broadcasting across the num_tokens dimension
+                    # 5. 将这个单一的权重广播到所有token上
                     broadcasted_weights = sequence_level_weight.unsqueeze(1)
                     
-                    # 6. Reshape back to the flattened structure to match token_losses
+                    # 6. 重塑回扁平化结构
                     flattened_weights = broadcasted_weights.expand(-1, num_tokens).reshape(-1)
 
-                    # 7. Apply the sequence-level weights to the token-level losses
+                    # 7. 应用序列级权重
                     weighted_losses = token_losses * flattened_weights
-                # END: New Sequence-Level UASFT logic
                 elif self.mode == "sft+kl":
                     if self.original_model is not None:
                         with torch.no_grad():
