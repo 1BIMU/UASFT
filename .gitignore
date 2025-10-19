@@ -12,5 +12,5 @@ venv/
 *.sqlite3
 .DS_Store
 .ipynb_checkpoints/
-
+train_medmcqa_alpaca_10k.jsonl
 math_evaluation/outputs/

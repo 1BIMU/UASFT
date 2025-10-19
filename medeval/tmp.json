@@ -1,15 +1,15 @@
 {
-  "/data1/wty/standard_models/llama-2-7b": {
+  "/data1/wty/standard_models/SCWSFT": {
     "medqa": {
-      "accuracy": 0.2945797329143755,
+      "accuracy": 0.3110761979575805,
       "total_samples": 1273
     },
     "mmlu": {
-      "accuracy": 0.3088718510405257,
+      "accuracy": 0.2570281124497992,
       "total_samples": 2739
     },
     "medmcqa": {
-      "accuracy": 0.33994740616782215,
+      "accuracy": 0.3150848673201052,
       "total_samples": 4183
     }
   }

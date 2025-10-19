@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,4"
 import ray
 from vllm import LLM, SamplingParams
 from typing import List, Dict, Any
@@ -119,7 +119,7 @@ def main():
     
     try:
         # List of models to test
-        models = ['/data1/wty/standard_models/llama-2-7b']
+        models = ['/data1/wty/standard_models/SCWSFT']
         
         # Dataset paths
         test_data_dir = "test_data"
