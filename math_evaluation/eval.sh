@@ -4,9 +4,9 @@ TEMPERATURE=1
 
 # MODEL_NAME_OR_PATH="models/Qwen2.5-32B-SFT"
 # OUTPUT_DIR="outputs/Qwen2.5-32B-SFT"
-
-MODEL_NAME_OR_PATH=""/volume/pt-train/users/wzhang/ghchen/zh/models/Llama-2-7b""
-OUTPUT_DIR="outputs/Test"
+export CUDA_VISIBLE_DEVICES=2
+MODEL_NAME_OR_PATH="/data1/wty/output/checkpoint-15000"
+OUTPUT_DIR="outputs/Test/Qwen2.5-0.5B-UASFT-NuminaMath-10k"
 
 
 

@@ -20,7 +20,7 @@ from python_executor import PythonExecutor
 from model_utils import load_hf_lm_and_tokenizer, generate_completions
 
 # List of available GPU IDs
-AVAILABLE_GPUS = ["3"]  
+AVAILABLE_GPUS = ["2"]  
 
 def parse_args():
     parser = argparse.ArgumentParser()

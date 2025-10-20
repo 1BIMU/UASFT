@@ -13,7 +13,6 @@ from torch.utils.data import Dataset
 from transformers import Trainer
 import os
 os.environ["WANDB_MODE"] = "offline"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 
 IGNORE_INDEX = -100
 
@@ -67,7 +66,22 @@ class EnhancedTrainer(Trainer):
         if original_model is not None:
             self.original_model.eval()
         print(f"Training mode: {mode}")
-    
+    def compute_sequence_entropy(self, logits):
+        """
+        计算序列中每个token的熵，并对整个序列求平均
+        Args:
+            logits: [batch_size, seq_len, vocab_size]
+        Returns:
+            sequence_entropy: [batch_size, seq_len] - 每个token的熵
+        """
+        # 计算概率分布
+        probs = F.softmax(logits, dim=-1)  # [batch_size, seq_len, vocab_size]
+        
+        # 计算熵: -sum(p * log(p))
+        log_probs = F.log_softmax(logits, dim=-1)  # [batch_size, seq_len, vocab_size]
+        entropy = -torch.sum(probs * log_probs, dim=-1)  # [batch_size, seq_len]
+        
+        return entropy
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
         labels = inputs.get("labels")
         outputs = model(**inputs)
@@ -96,72 +110,34 @@ class EnhancedTrainer(Trainer):
                 if self.mode == "sft":
                     weighted_losses = token_losses
                     
-                elif self.mode == "uasft":
-                    # 1. Calculate the probability distribution for each token prediction
-                    probs = torch.softmax(shift_logits, dim=-1)
-                    # Use log_softmax for numerical stability in entropy calculation
-                    log_probs = F.log_softmax(shift_logits, dim=-1)
-                    
-                    # 2. Calculate the entropy for each token's distribution
-                    # Entropy H(p) = - sum(p * log(p))
-                    entropy_weights = -(probs * log_probs).sum(dim=-1)
-                    
-                    # 3. Detach the weights so they don't contribute to the gradient themselves
-                    # We use entropy as a heuristic to scale the loss, not as part of the objective
-                    entropy_weights = entropy_weights.detach()
-                    
-                    # 4. Apply the entropy weights to the original token losses
-                    weighted_losses = token_losses * entropy_weights
                 elif self.mode == "dft":
                     probs = torch.softmax(shift_logits, dim=-1)
                     valid_labels = torch.clamp(shift_labels, min=0, max=probs.size(-1)-1)
                     weights = probs.gather(1, valid_labels.unsqueeze(-1)).squeeze(-1).detach()
                     weighted_losses = token_losses * weights
-                elif self.mode == "scwsft":
-                    # 1. 计算熵
-                    probs = torch.softmax(shift_logits, dim=-1)
-                    log_probs = F.log_softmax(shift_logits, dim=-1)
-                    entropy_values = -(probs * log_probs).sum(dim=-1)
+                elif self.mode == "uasft":  # Uncertainty Aware SFT
+                    batch_size = inputs['input_ids'].shape[0]
+                    seq_length = logits.shape[1] - 1
 
-                    # 2. 使用指数衰减来计算权重
-                    # 确保权重范围在 (0, 1]
-                    confidence_weights = torch.exp(-self.beta * entropy_values)
+                    # (修复) 将所有熵和权重的计算放入 no_grad 块
+                    with torch.no_grad():
+                        # 1. 在压平的 logits 上计算每个 token 的熵
+                        probs = torch.softmax(shift_logits, dim=-1)
+                        entropy = -torch.sum(probs * torch.log(probs + 1e-9), dim=-1) # shape: [batch_size * seq_len]
 
-                    # 3. Detach 权重 (sg() 操作)
-                    confidence_weights = confidence_weights.detach()
+                        # 2. 恢复形状，计算每个序列的平均熵
+                        entropy_reshaped = entropy.view(batch_size, seq_length)
+                        valid_mask_reshaped = valid_mask.view(batch_size, seq_length)
 
-                    # 4. 应用权重
-                    weighted_losses = token_losses * confidence_weights
+                        num_valid_tokens = valid_mask_reshaped.sum(dim=1, keepdim=True).clamp(min=1)
+                        sequence_entropy = torch.sum(entropy_reshaped * valid_mask_reshaped, dim=1, keepdim=True) / num_valid_tokens # shape: [batch_size, 1]
 
-                elif self.mode == "sl_uasft":
-                    # 1. 计算token级别的熵
-                    probs = torch.softmax(shift_logits, dim=-1)
-                    log_probs = F.log_softmax(shift_logits, dim=-1)
-                    token_entropies = -(probs * log_probs).sum(dim=-1)
+                        # 3. 广播
+                        entropy_weights = sequence_entropy.repeat_interleave(seq_length, dim=0).view(-1) # 确保是 1D 张量
                     
-                    # 2. 重塑张量以便按序列进行操作
-                    # 这里的 batch_size 和 num_tokens 现在是正确的值了
-                    reshaped_entropies = token_entropies.view(batch_size, num_tokens)
-                    reshaped_valid_mask = valid_mask.view(batch_size, num_tokens)
-
-                    # 3. 计算每个序列中 回复(RESPONSE) 部分的平均熵
-                    masked_entropies = reshaped_entropies * reshaped_valid_mask.float()
-                    sum_of_entropies_per_seq = masked_entropies.sum(dim=1)
-                    num_valid_tokens_per_seq = reshaped_valid_mask.sum(dim=1)
-                    epsilon = 1e-8
-                    avg_entropy_per_seq = sum_of_entropies_per_seq / (num_valid_tokens_per_seq + epsilon)
-
-                    # 4. 分离序列级权重 (sg() 操作)
-                    sequence_level_weight = avg_entropy_per_seq.detach()
-
-                    # 5. 将这个单一的权重广播到所有token上
-                    broadcasted_weights = sequence_level_weight.unsqueeze(1)
-                    
-                    # 6. 重塑回扁平化结构
-                    flattened_weights = broadcasted_weights.expand(-1, num_tokens).reshape(-1)
-
-                    # 7. 应用序列级权重
-                    weighted_losses = token_losses * flattened_weights
+                    # 4. token_losses (有梯度) * entropy_weights (无梯度)
+                    # .detach() 在这里是多余的，但保留也无妨
+                    weighted_losses = token_losses * entropy_weights.detach()
                 elif self.mode == "sft+kl":
                     if self.original_model is not None:
                         with torch.no_grad():

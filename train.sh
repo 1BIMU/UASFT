@@ -3,7 +3,7 @@
 
 # ============ User Configurable Variables ============
 # Select which GPUs to use (comma-separated)
-export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-"2,4"}
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-"2,3"}
 
 # Path to the pretrained model (make sure the model is downloaded)
 MODEL_PATH=${MODEL_PATH:-"/data1/wty/standard_models/Qwen2.5-0.5B"}
@@ -15,12 +15,13 @@ DATA_PATH=${DATA_PATH:-"/data1/wty/dataset/NUMINAMATH_COT/NuminaMath-10k.jsonl"}
 OUTPUT_DIR=${OUTPUT_DIR:-"/data1/wty/output"}
 
 # Training parameters
-MODE=${MODE:-"sl_uasft"} # Training mode: sft, sft+kl, asft, dft+kl , uasft
+MODE=${MODE:-"uasft"} # Training mode: sft, sft+kl, asft, dft+kl , uasft
 MODEL_MAX_LENGTH=${MODEL_MAX_LENGTH:-4096}
-GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-256}
+GLOBAL_BATCH_SIZE=${GLOBAL_BATCH_SIZE:-2}
 LEARNING_RATE=${LEARNING_RATE:-5e-5}
 NUM_TRAIN_EPOCHS=${NUM_TRAIN_EPOCHS:-3}
 KL_WEIGHT=${KL_WEIGHT:-0.1}
+PER_DEVICE_TRAIN_BATCH_SIZE=1
 
 # ============ Run Training ============
 echo "Starting training with the following settings:"
@@ -40,6 +41,7 @@ python train.py \
     --model_max_length $MODEL_MAX_LENGTH \
     --global_batch_size $GLOBAL_BATCH_SIZE \
     --learning_rate $LEARNING_RATE \
+    --per_device_train_batch_size $PER_DEVICE_TRAIN_BATCH_SIZE \
     --num_train_epochs $NUM_TRAIN_EPOCHS \
     --kl_weight $KL_WEIGHT \
     --model_name_or_path $MODEL_PATH \
